@@ -19,3 +19,6 @@ We hope that this explanation could be helpful in scenerios where the user is of
 Although results are promising on low dimension images like MNIST, VAE-GANs are not able to keep the resolution of more complex images, resulting in a fuzzy generated image. It is also unclear as to what a counterfactual explanation would look like in high dimension images (for example, how do we explain why the model predicted cat instead of dog?). It could be that for such situations, a generative approach is not useful. 
 
 Our work was motivated by [this paper](https://papers.nips.cc/paper/7340-explanations-based-on-the-missing-towards-contrastive-explanations-with-pertinent-negatives.pdf), which also explored counterfactuals but through a black-box approach using data augmentation. 
+
+## Model
+VAE-GAN = FC Encoder + NormDist + FC Decoder + FC Discriminator  

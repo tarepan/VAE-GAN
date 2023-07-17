@@ -1,8 +1,5 @@
 import torch
-from torch.autograd import Variable
-import matplotlib.pyplot as plt
-import numpy as np
-from data.mnist import Net
+
 
 def idx2onehot(idx, n, idx2=None, alpha = 1):
 
@@ -13,7 +10,6 @@ def idx2onehot(idx, n, idx2=None, alpha = 1):
         idx = idx.unsqueeze(1)
        
     try:
-        #print("only go in this one")
         ans = []
         for i in range(idx.cpu().data.numpy().size):
             arr = torch.zeros(n)

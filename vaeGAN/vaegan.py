@@ -1,85 +1,37 @@
-from __future__ import print_function
-import argparse
 import torch
-import torch.utils.data
-from torch import nn, optim
+from torch import nn
 from torch.autograd import Variable
 from torch.nn import functional as F
-from torchvision import datasets, transforms
-from torchvision.utils import save_image
-import torchvision.utils as vutils
-from data.mnist import Net
 from utils import idx2onehot
 
+
 class VAE(nn.Module):
+    """VAE Encoder, cat(sample,onehot)-FC1-ReLU-FC21/FC22-μ/logσ."""
+
     def __init__(self):
         super(VAE, self).__init__()
 
-        self.fc1 = nn.Linear(794, 400)
-        self.fc21 = nn.Linear(400, 20)
-        self.fc22 = nn.Linear(400, 20)
-        self.fc3 = nn.Linear(20, 400)
-        self.fc4 = nn.Linear(400, 784)
-
+        self.fc1  = nn.Linear(794, 400)
+        self.fc21 = nn.Linear(400,  20)
+        self.fc22 = nn.Linear(400,  20)
         self.relu = nn.ReLU()
-        self.sigmoid = nn.Sigmoid()
-
-        self.mu_ = nn.Sequential(
-            #28x28->12x12
-            nn.Conv2d(1,8,5,2,0,bias=False),
-            nn.BatchNorm2d(8),
-            nn.ReLU(True),
-            #12x12->4x4
-            nn.Conv2d(8,64,5,2,0,bias=False),
-            nn.BatchNorm2d(64),
-            nn.ReLU(True),
-            #4x4->1x1: 20,1,1
-            nn.Conv2d(64,20,4,1,0,bias=False),
-            nn.ReLU(True)
-            )
-
-
-        self.logsigma_ = nn.Sequential(
-            #28x28->12x12
-            nn.Conv2d(1,8,5,2,0,bias=False),
-            nn.BatchNorm2d(8),
-            nn.ReLU(True),
-            #12x12->4x4
-            nn.Conv2d(8,64,5,2,0,bias=False),
-            nn.BatchNorm2d(64),
-            nn.ReLU(True),
-            #4x4->1x1: 20,1,1
-            nn.Conv2d(64,20,4,1,0,bias=False),
-            nn.ReLU(True)
-            )
-        
-
-        self.dec_ = nn.Sequential(
-            #1x1->4x4
-            nn.ConvTranspose2d(20,20*8,4,1,0,bias=False),  #(ic,oc,kernel,stride,padding)
-            nn.BatchNorm2d(20*8), 
-            nn.ReLU(True),
-            nn.ConvTranspose2d(20*8,20*16,4,2,1,bias=False), #4x4->8x8
-            nn.BatchNorm2d(20*16),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(20*16,20*32,4,2,1,bias=False), #8x8->16x16
-            nn.BatchNorm2d(20*32),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(20*32,1,2,2,2,bias=False), #16x16->28x28
-            nn.Sigmoid()
-            )
-        
 
     def encode(self, x, y, label, alpha):
+        """cat(sample,onehot)-FC1-ReLU, then -FC21 for μ and -FC22 for logσ.
+        
+        Args:
+            x :: (B, Feat) - Sample
+            y ::           -
+        """
+
         y = idx2onehot(y, 10, label, alpha)
         con = torch.cat((x, y), dim=-1)
+        # :: (..., feat=28*28+10=794) -> (..., feat=400) -> (..., feat=20)
         h1 = self.relu(self.fc1(con))
         return self.fc21(h1), self.fc22(h1)
 
-    #def encode_new(self,x):
-    #    return self.mu_(x), self.logsigma_(x)
-
     def reparameterize(self, mu, logvar):
+        """Reparameterization trick, z = μ + n * exp(logσ), n ~ N(0,1)"""
         if self.training:
           std = logvar.mul(0.5).exp_()
           eps = Variable(std.data.new(std.size()).normal_())
@@ -87,53 +39,61 @@ class VAE(nn.Module):
         else:
           return mu
 
-
-    #def decode_new(self,z, y):
-    #    z = z.view(-1,z.size(1),1,1)
-    #    return(self.dec_(z, y))
-
-
-    #def decode(self, z, y):
-    #    z = z.view(-1,20)
-    #    y_c = self.to_categrical(y)
-    #    cat = torch.cat((z, y_c), dim=-1)
-    #    h3 = self.relu(self.fc3(cat))
-    #    ret = self.sigmoid(self.fc4(h3))
-    #    ret = torch.narrow(ret, 1, 0, 784)
-    #    return ret
-
-    def dec_params(self):
-        return self.fc3, self.fc4
-
-    def return_weights(self):
-        return self.fc3.weight, self.fc4.weight
-
     def forward(self, x, y, label=None, alpha = 1):
-       #mu, logvar = self.encode_new(x.view(-1, 1,28,28))
+       """
+       Args:
+        x     :: - Sample
+        y     :: - Class label 
+        label :: -
+        alpha
+       Returns:
+        mu     :: (B, Feat=20, 1, 1) - μ    distribution parameter
+        logvar :: (B, Feat=20, 1, 1) - logσ distribution parameter
+       """
+
+       # Parameterization :: (...) -> (B, Feat=28*28=784) -> (B, Feat=20) x2
        mu, logvar = self.encode(x.view(-1,28*28), y, label, alpha)
+
+       # Sampling :: (B, Feat=20) x2 -> (B, Feat=20)
+       # NOTE: Not used
        z = self.reparameterize(mu, logvar)
+
+       # Reshape :: (B, Feat=20) -> (B, Feat=20, 1, 1)
+       mu.unsqueeze_(-1)
        mu.unsqueeze_(-1)
        logvar.unsqueeze_(-1)
-       mu.unsqueeze_(-1)
        logvar.unsqueeze_(-1)
-       return mu,logvar
-        #return mu,logvar
+
+       return mu, logvar
+
 
 class Aux(nn.Module):
+    """VAE Decoder, cat(z,onehot)-FC-ReLU-FC-σ."""
     def __init__(self):
         super(Aux,self).__init__()
 
-        self.fc3 = nn.Linear(30,400)
-        self.fc4 = nn.Linear(400,784)
+        self.fc3 = nn.Linear( 30, 400)
+        self.fc4 = nn.Linear(400, 784)
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
 
     def decode(self,z, y, label, alpha):
-        z = z.view(-1,20)
+        """
+        Args:
+            z :: (B, Feat=20, 1, 1) - Latent variables
+            y :: ()                 - Digit label
+        """
+
+        # Reshape :: (B, Feat=20, 1, 1) -> (B, Feat=20)
+        z = z.view(-1, 20)
+
+        # Conditioning :: (B, Feat=20) & () -> (B, Feat=30)
         y_c = idx2onehot(y, 10, label, alpha)
         cat = torch.cat((z, y_c), dim=-1)
-        h3 = self.relu(self.fc3(cat))
-        ret = self.sigmoid(self.fc4(h3))
+
+        # Transform :: (B, Feat=30) -> (B, Feat=784)
+        ret = self.sigmoid(self.fc4(self.relu(self.fc3(cat))))
+
         ret = torch.narrow(ret, 1, 0, 784)
         return ret
     
@@ -145,61 +105,66 @@ class Aux(nn.Module):
         else:
           return mu
 
-    def dec_params(self):
-        return self.fc3,self.fc4
-
-    def return_weights(self):
-        return self.fc3.weight, self.fc4.weight
-
-    
     def forward(self,z, y, label=None, alpha = 1):
-        #self.fc3.weight = fc3_weight
-        #self.fc4.weight = fc4_weight
-        
+        """
+        Args:
+            z :: (B, Feat=20, 1, 1) - Latent variables
+            y :: ()                 - Digit label
+        """
         #z = self.reparameterize(mu,logvar)
-        #other.fc3,other.fc4 = self.dec_params()
-        #return self.decode(z).view(-1,28,28)
         return self.decode(z, y, label, alpha)
 
 
-    
-
 class NetD(nn.Module):
+    """Discriminator."""
     def __init__(self):
         super(NetD, self).__init__()
         
         self.label_emb = nn.Embedding(10, 10)
-        
+
+        do_rate = 0.3
+        c_0, c_1, c_2, c_3 = 794, 1024, 512, 256
+
+        # FC-LReLU-Do-FC-LReLU-Do-FC-LReLU-Do :: (B, Feat=794) -> (B, Feat=256)
         self.model = nn.Sequential(
-            nn.Linear(794, 1024),
+            nn.Linear(c_0, c_1),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Dropout(0.3),
-            nn.Linear(1024, 512),
+            nn.Dropout(do_rate),
+            nn.Linear(c_1, c_2),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Dropout(0.3),
-            nn.Linear(512, 256),
+            nn.Dropout(do_rate),
+            nn.Linear(c_2, c_3),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Dropout(0.3),
+            nn.Dropout(do_rate),
         )
-        
+        # -FC-σ :: (B, Feat=256) -> (B, Feat=1)
         self.main = nn.Sequential(
-            nn.Linear(256, 1),
+            nn.Linear(c_3, 1),
             nn.Sigmoid()
         )
 
-
     def forward(self,x, y):
+        """
+        Args:
+        Returns:
+            out :: (B, Feat=256) - Intermediate features for VAE D-feature L2 loss
+            dl  :: (B, Feat=  1) - Discrimination
+        """
+        # Reshape :: (B, ...) -> (B, Feat=784)
         x = x.view(x.size(0), 784)
         c = self.label_emb(y)
         x = torch.cat([x, c], 1)
+
         out = self.model(x)
         dl = self.main(out)
+
         return out, dl
 
-def loss_function(recon_x, x, mu, logvar,bsz=100):
+
+def loss_function(recon_x, x, mu, logvar, bsz=100):
+    """VAE loss = L2 loss + KL loss."""
     #BCE = F.binary_cross_entropy(recon_x.view(-1,784), x.view(-1, 784))
-    #MSE = F.mse_loss(recon_x.view(-1,784), x.view(-1,784))
-    MSE = F.mse_loss(recon_x,x)
+    MSE = F.mse_loss(recon_x, x)
 
     # see Appendix B from VAE paper:
     # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
