@@ -22,3 +22,7 @@ Our work was motivated by [this paper](https://papers.nips.cc/paper/7340-explana
 
 ## Model
 VAE-GAN = FC Encoder + NormDist + FC Decoder + FC Discriminator  
+
+## Performance
+- Train
+  - 1h25min for 200 epoch (Google Colab NVIDIA T4, TF32-/AMP-)
