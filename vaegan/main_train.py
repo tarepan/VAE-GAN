@@ -1,13 +1,11 @@
 "Train VAE/GAN"
 
-import torch
-import torch.utils.data
 from torch import nn, Tensor, optim, empty_like, ones, zeros # pylint:disable=no-name-in-module
 import torch.nn.functional as F
-from torchvision import datasets, transforms # pyright:ignore[reportMissingTypeStubs]
 from torchvision.utils import save_image     # pyright:ignore[reportMissingTypeStubs,reportUnknownVariableType]
 
 from .module import Encoder, Decoder, Discriminator, reconstruction_loss, kl_loss
+from .data import MNISTFixedOnMemory
 
 
 def main():
@@ -17,10 +15,7 @@ def main():
     bsz = 128
     n_epoch = 200
 
-    dataset_train = datasets.MNIST('../data', download=True,                transform=transforms.ToTensor())
-    # dataset_test  = datasets.MNIST('../data',                train = False, transform=transforms.ToTensor())
-    train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=bsz, shuffle=True, drop_last=True) # pyright:ignore[reportUnknownVariableType]
-    # test_loader  = torch.utils.data.DataLoader(dataset_test,  batch_size=bsz, shuffle=True, drop_last=True)
+    train_loader = MNISTFixedOnMemory(bsz, "../data", download=True, initial_shuffle=True, device="cuda")
 
     encoder = Encoder()
     decoder = Decoder()
