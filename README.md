@@ -17,7 +17,7 @@ Digit-conditional VAE/GAN (Variational Autoencoder combined with a Generative Ad
 
 ## Performance
 - Train
-  - 42 min for 200 epoch (Google Colab NVIDIA T4, TF32-/AMP-)
+  - 15 min for whole training (200 epoch, Google Colab NVIDIA T4, TF32-/AMP-)
 
 
 [ColabBadge]:https://colab.research.google.com/assets/colab-badge.svg
