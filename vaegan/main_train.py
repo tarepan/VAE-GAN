@@ -6,7 +6,7 @@ from torch import nn, optim, empty_like, ones, zeros # pylint:disable=no-name-in
 from torchvision import datasets, transforms # pyright:ignore[reportMissingTypeStubs]
 from torchvision.utils import save_image     # pyright:ignore[reportMissingTypeStubs,reportUnknownVariableType]
 
-from .module import Encoder, Decoder, Discriminator, loss_function
+from .module import Encoder, Decoder, Discriminator, reconstruction_loss, kl_loss
 from .utils import idx2onehot
 
 
@@ -45,8 +45,8 @@ def main():
             #### Step ################################################
 
             # Data
-            ## real :: (B, 1, X=28, Y=28)
-            real  = image.cuda()
+            ## real :: (B, 1, X=28, Y=28) -> (B, Feat=28*28=784)
+            real = image.view(-1,28*28).cuda()
             ## digit :: (B,)
             digit = digit.cuda()
 
@@ -77,8 +77,11 @@ def main():
             # G_Loss/Backward/Optim, with adversarial encoder learning
             loss_adv_g_zq = criterion(d_fake_zq.squeeze(1), _ones)
             loss_adv_g_zp = criterion(d_fake_zp.squeeze(1), _ones)
-            loss_vae = loss_function(d_feat_fake, d_feat_real, mu, logvar)
-            loss_g = loss_adv_g_zq + loss_adv_g_zp + loss_vae
+            loss_g_gan = loss_adv_g_zq + loss_adv_g_zp
+            loss_reconst = reconstruction_loss(d_feat_fake, d_feat_real)
+            loss_kl = kl_loss(mu, logvar)
+            loss_g_vae = loss_reconst + loss_kl
+            loss_g = loss_g_gan + loss_g_vae
             encoder.zero_grad()
             decoder.zero_grad()
             loss_g.backward()
@@ -87,8 +90,9 @@ def main():
 
             # Logging
             if i % 2000 == 0:
-                save_image(real,                          './results/cvaegan_results/train2_real_samples2.png', normalize=True)
-                save_image(fake_zq.data.view(-1,1,28,28), './results/cvaegan_results/train2_fake_samples2.png', normalize=True)
+                save_image(   real.data.view(-1,1,28,28), './results/cvaegan_results/train2_real_samples2.png',    normalize=True)
+                save_image(fake_zq.data.view(-1,1,28,28), './results/cvaegan_results/train2_fake_zq_samples2.png', normalize=True)
+                save_image(fake_zp.data.view(-1,1,28,28), './results/cvaegan_results/train2_fake_zp_samples2.png', normalize=True)
             #### /Step ###############################################
 
         if epoch % 25 == 0:
