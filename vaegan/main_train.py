@@ -6,10 +6,10 @@ from torch import nn, optim, empty_like, ones, zeros # pylint:disable=no-name-in
 from torchvision import datasets, transforms # pyright:ignore[reportMissingTypeStubs]
 from torchvision.utils import save_image     # pyright:ignore[reportMissingTypeStubs,reportUnknownVariableType]
 
-from .vaegan import Encoder
-from .vaegan import Discriminator
-from .vaegan import Decoder
-from .vaegan import loss_function
+from .module import Encoder
+from .module import Discriminator
+from .module import Decoder
+from .module import loss_function
 
 
 def main():
