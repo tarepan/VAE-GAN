@@ -87,12 +87,12 @@ def main():
 
             # Logging
             if i % 2000 == 0:
-                save_image(real,                          '../results/cvaegan_results/train2_real_samples2.png', normalize=True)
-                save_image(fake_zq.data.view(-1,1,28,28), '../results/cvaegan_results/train2_fake_samples2.png', normalize=True)
+                save_image(real,                          './results/cvaegan_results/train2_real_samples2.png', normalize=True)
+                save_image(fake_zq.data.view(-1,1,28,28), './results/cvaegan_results/train2_fake_samples2.png', normalize=True)
             #### /Step ###############################################
 
         if epoch % 25 == 0:
-            save_image(fake_zq.data.view(-1,1,28,28), f'../results/cvaegan_results/train2_fake_samples2_{epoch}.png', normalize=True) # pyright:ignore[reportUnboundVariable]
+            save_image(fake_zq.data.view(-1,1,28,28), f'./results/cvaegan_results/train2_fake_samples2_{epoch}.png', normalize=True) # pyright:ignore[reportUnboundVariable]
 
     # torch.save(encoder, './pretrained models/encoder3.pth')
     # torch.save(disc,    './pretrained models/disc3.pth')
