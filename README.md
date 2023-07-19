@@ -1,4 +1,6 @@
 # VAE-GAN
+[![ColabBadge]][notebook]
+
 We present Conditional VAE-GAN used on MNIST digits to generate counterfactual examples.
 
 A VAE-GAN is a Variational Autoencoder combined with a Generative Adversarial Network
@@ -26,3 +28,7 @@ VAE-GAN = FC Encoder + NormDist + FC Decoder + FC Discriminator
 ## Performance
 - Train
   - 1h25min for 200 epoch (Google Colab NVIDIA T4, TF32-/AMP-)
+
+
+[ColabBadge]:https://colab.research.google.com/assets/colab-badge.svg
+[notebook]:https://colab.research.google.com/github/tarepan/VAE-GAN/blob/main/vaegan.ipynb
