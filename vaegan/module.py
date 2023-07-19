@@ -20,28 +20,26 @@ class Encoder(nn.Module):
         self.fc22 = nn.Linear(400,  20)
         self.relu = nn.ReLU()
 
-    def _encode(self, sample: Tensor, idx_class: Tensor, idx_alt_class: None | Tensor, alpha: float):
+    def _encode(self, sample: Tensor, cond: Tensor):
         """cat(sample,onehot)-FC1-ReLU, then -FC21 for μ and -FC22 for logσ.
         
         Args:
             sample        :: (B, Feat) - Samples
-            idx_class     :: (B,)      - Class indice
-            idx_alt_class              - Alternative class index for breanding
-            alpha                      - Class index blending rate
+            cond          :: (B, Feat) - Conditioning vector
         """
 
         # Conditioning :: (B,) -> (B, Feat)
-        emb_class = idx2onehot(idx_class, 10, idx_alt_class, alpha)
-        con = cat((sample, emb_class), dim=-1)
+        sample_cond = cat((sample, cond), dim=-1)
 
         # Encode:: (B, Feat=794) -> (B, Feat=400) -> (B, Feat=20) x2
-        h1 = self.relu(self.fc1(con))
+        h1 = self.relu(self.fc1(sample_cond))
         mu, logvar = self.fc21(h1), self.fc22(h1)
 
         return mu, logvar
 
     def reparameterize(self, mu: Tensor, logvar: Tensor):
         """Reparameterization trick, z = μ + n * exp(logσ), n ~ N(0,1)"""
+
         if self.training:
             eps = empty_like(mu).normal_()
             z_q = mu + eps * exp(logvar * 0.5)
@@ -49,13 +47,11 @@ class Encoder(nn.Module):
         else:
             return mu
 
-    def forward(self, sample: Tensor, idx_class: Tensor, idx_alt_class: None | Tensor = None, alpha: float = 1.):
+    def forward(self, sample: Tensor, cond: Tensor):
         """
         Args:
-            sample        :: (B, 1, X=28, Y=28) - Sample
-            idx_class     :: (B,)               - Class label 
-            idx_alt_class ::                    - Alternative class index for breanding
-            alpha                               - Index brending rate
+            sample :: (B, 1, X=28, Y=28) - Sample
+            cond   :: (B, Feat=10)       - Conditioning vector
         Returns:
             z_q           :: (B, Feat=20, 1, 1) - Latent
             mu            :: (B, Feat=20, 1, 1) - μ    distribution parameter
@@ -65,8 +61,8 @@ class Encoder(nn.Module):
         # Reshape :: (B, 1, X=28, Y=28) -> (B, Feat=784) - Flatten
         sample = sample.view(-1,28*28)
 
-        # Parameterization :: (B, Feat=784) -> (B, Feat=20) x2
-        mu, logvar = self._encode(sample, idx_class, idx_alt_class, alpha)
+        # Parameterization :: (B, Feat=784) & (B, Feat=10) -> (B, Feat=20) x2
+        mu, logvar = self._encode(sample, cond)
 
         # Sampling :: (B, Feat=20) x2 -> (B, Feat=20)
         z_q = self.reparameterize(mu, logvar)
@@ -89,23 +85,16 @@ class Decoder(nn.Module):
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
 
-    def forward(self, latent: Tensor, idx_class: Tensor, idx_alt_class: None | Tensor = None, alpha: float = 1.):
+    def forward(self, latent: Tensor, cond: Tensor):
         """
         Args:
-            latent        :: (B, Feat=20, 1, 1) - Latent variables
-            idx_class     :: (B,)               - Class index
-            idx_alt_class ::                    - Alternative class index for breanding
-            alpha                               - Index brending rate
+            latent        :: (B, Feat=20, 1, 1) - Latent
+            cond          :: (B, Feat=10)       - Conditioning vector
         """
 
-        # Reshape :: (B, Feat=20, 1, 1) -> (B, Feat=20)
+        # Reshape/Conditioning/Transform :: (B, Feat=20, 1, 1) & (B, Feat=10) -> (B, Feat=30) -> (B, Feat=784)
         latent = latent.view(-1, 20)
-
-        # Conditioning :: (B, Feat=20) & (B,) -> (B, Feat=30)
-        emb_class = idx2onehot(idx_class, 10, idx_alt_class, alpha)
-        latent_cond = cat((latent, emb_class), dim=-1)
-
-        # Transform :: (B, Feat=30) -> (B, Feat=784)
+        latent_cond = cat((latent, cond), dim=-1)
         sample_pred = self.sigmoid(self.fc4(self.relu(self.fc3(latent_cond))))
 
         return sample_pred

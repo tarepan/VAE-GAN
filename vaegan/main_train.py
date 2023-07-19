@@ -6,10 +6,8 @@ from torch import nn, optim, empty_like, ones, zeros # pylint:disable=no-name-in
 from torchvision import datasets, transforms # pyright:ignore[reportMissingTypeStubs]
 from torchvision.utils import save_image     # pyright:ignore[reportMissingTypeStubs,reportUnknownVariableType]
 
-from .module import Encoder
-from .module import Discriminator
-from .module import Decoder
-from .module import loss_function
+from .module import Encoder, Decoder, Discriminator, loss_function
+from .utils import idx2onehot
 
 
 def main():
@@ -53,13 +51,15 @@ def main():
             digit = digit.cuda()
 
             # Common_Forward
+            ## Embedding
+            cond = idx2onehot(digit, 10)
             ## Encode
-            z_q, mu, logvar = encoder(real, digit)
+            z_q, mu, logvar = encoder(real, cond)
             ## Prior sampling
             z_p = empty_like(mu).normal_()
             ## Decode
-            fake_zq = decoder(z_q, digit)
-            fake_zp = decoder(z_p, digit)
+            fake_zq = decoder(z_q, cond)
+            fake_zp = decoder(z_p, cond)
 
             # D_Forward
             d_feat_fake, d_fake_zq = disc(fake_zq, digit)

@@ -4,13 +4,14 @@ import torch
 from torch import Tensor
 
 
-def idx2onehot(indice: Tensor, n_class: int, idx2: None | Tensor, alpha: float):
+def idx2onehot(indice: Tensor, n_class: int, idx2: None | Tensor = None, alpha: float = 1.):
     """Class index to one-hot vector.
     
     Args:
-        indice :: (B,) - Class indice
-
-        alpha          - Label breanding rate
+        indice  :: (B,) - Class indice
+        n_class         - The number of classes
+        idx2            - Alternative class index for breanding
+        alpha           - Index brending rate
     """
 
     indice = indice.cpu()
