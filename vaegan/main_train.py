@@ -2,12 +2,12 @@
 
 import torch
 import torch.utils.data
-from torch import nn, optim, empty_like, ones, zeros # pylint:disable=no-name-in-module
+from torch import nn, Tensor, optim, empty_like, ones, zeros # pylint:disable=no-name-in-module
+import torch.nn.functional as F
 from torchvision import datasets, transforms # pyright:ignore[reportMissingTypeStubs]
 from torchvision.utils import save_image     # pyright:ignore[reportMissingTypeStubs,reportUnknownVariableType]
 
 from .module import Encoder, Decoder, Discriminator, reconstruction_loss, kl_loss
-from .utils import idx2onehot
 
 
 def main():
@@ -51,8 +51,8 @@ def main():
             digit = digit.cuda()
 
             # Common_Forward
-            ## Embedding
-            cond = idx2onehot(digit, 10)
+            ## Embedding :: (B, Feat)
+            cond: Tensor = F.one_hot(digit, 10) # pyright:ignore[reportUnknownMemberType,reportUnknownVariableType]
             ## Encode
             z_q, mu, logvar = encoder(real, cond)
             ## Prior sampling
